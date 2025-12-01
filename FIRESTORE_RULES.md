@@ -36,11 +36,12 @@ service cloud.firestore {
     match /eventParticipants/{participantId} {
       allow read: if true; // Need public read to verify access codes
       allow create: if request.auth != null;
-      allow update, delete: if request.auth != null &&
+      allow update: if request.auth != null &&
+        (isEventOwner(resource.data.eventId) ||
+         isEventOwner(request.resource.data.eventId));
+      allow delete: if request.auth != null &&
         isEventOwner(resource.data.eventId);
-    }
-
-    // Exclusions - event owner can manage, authenticated users can read
+    }    // Exclusions - event owner can manage, authenticated users can read
     match /exclusions/{exclusionId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null &&

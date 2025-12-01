@@ -206,7 +206,7 @@ function EventView() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            window.location.href = `#/event/${eventId}?code=${codeInput}`;
+            window.location.href = `#/events/${eventId}?code=${codeInput}`;
             window.location.reload();
           }}
         >
