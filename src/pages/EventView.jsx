@@ -22,82 +22,88 @@ function EventView() {
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
-      const eventDoc = await getDoc(doc(db, "events", eventId));
-      if (!eventDoc.exists()) {
-        setEvent({ missing: true });
-        setLoading(false);
-        return;
-      }
-      const data = { id: eventDoc.id, ...eventDoc.data() };
-      setEvent(data);
+      try {
+        setLoading(true);
+        const eventDoc = await getDoc(doc(db, "events", eventId));
+        if (!eventDoc.exists()) {
+          setEvent({ missing: true });
+          setLoading(false);
+          return;
+        }
+        const data = { id: eventDoc.id, ...eventDoc.data() };
+        setEvent(data);
 
-      // Check if access code authentication is needed
-      if (!user && !accessCode) {
-        setLoading(false);
-        return;
-      }
+        // Check if access code authentication is needed
+        if (!user && !accessCode) {
+          setLoading(false);
+          return;
+        }
 
-      let participantQuery;
-      if (user) {
-        // Traditional user-based auth (for event owners)
-        participantQuery = await getDocs(
-          query(
-            collections.participants(),
-            where("eventId", "==", eventId),
-            where("userId", "in", [user.uid, user.email].filter(Boolean))
-          )
-        ).catch(async () => {
-          const fallbackSnap = await getDocs(
-            query(collections.participants(), where("eventId", "==", eventId))
+        let participantQuery;
+        if (user) {
+          // Traditional user-based auth (for event owners)
+          participantQuery = await getDocs(
+            query(
+              collections.participants(),
+              where("eventId", "==", eventId),
+              where("userId", "in", [user.uid, user.email].filter(Boolean))
+            )
+          ).catch(async () => {
+            const fallbackSnap = await getDocs(
+              query(collections.participants(), where("eventId", "==", eventId))
+            );
+            return {
+              docs: fallbackSnap.docs.filter((d) => {
+                const dataInner = d.data();
+                return (
+                  dataInner.userId === user.uid || dataInner.email === user.email
+                );
+              }),
+            };
+          });
+        } else if (accessCode) {
+          // Access code based auth (for participants)
+          participantQuery = await getDocs(
+            query(
+              collections.participants(),
+              where("eventId", "==", eventId),
+              where("accessCode", "==", accessCode)
+            )
           );
-          return {
-            docs: fallbackSnap.docs.filter((d) => {
-              const dataInner = d.data();
-              return (
-                dataInner.userId === user.uid || dataInner.email === user.email
-              );
-            }),
-          };
-        });
-      } else if (accessCode) {
-        // Access code based auth (for participants)
-        participantQuery = await getDocs(
-          query(
-            collections.participants(),
-            where("eventId", "==", eventId),
-            where("accessCode", "==", accessCode)
-          )
+        }
+
+        const memberRecord = participantQuery?.docs[0]?.data();
+        if (memberRecord) {
+          setParticipantRecord(memberRecord);
+          setAuthenticated(true);
+        }
+
+        const allParticipantsSnap = await getDocs(
+          query(collections.participants(), where("eventId", "==", eventId))
         );
-      }
+        const participantList = allParticipantsSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        }));
+        setParticipants(participantList);
 
-      const memberRecord = participantQuery?.docs[0]?.data();
-      if (memberRecord) {
-        setParticipantRecord(memberRecord);
-        setAuthenticated(true);
+        if (memberRecord) {
+          const assignmentSnap = await getDocs(
+            query(
+              collections.assignments(),
+              where("eventId", "==", eventId),
+              where("giverId", "==", memberRecord.id || memberRecord.email)
+            )
+          );
+          const first = assignmentSnap.docs[0]?.data();
+          setAssignment(first || null);
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error("Error loading event:", error);
+        setStatus({ type: "error", message: error.message });
+        setLoading(false);
       }
-
-      const allParticipantsSnap = await getDocs(
-        query(collections.participants(), where("eventId", "==", eventId))
-      );
-      const participantList = allParticipantsSnap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }));
-      setParticipants(participantList);
-
-      if (memberRecord) {
-        const assignmentSnap = await getDocs(
-          query(
-            collections.assignments(),
-            where("eventId", "==", eventId),
-            where("giverId", "==", memberRecord.id || memberRecord.email)
-          )
-        );
-        const first = assignmentSnap.docs[0]?.data();
-        setAssignment(first || null);
-      }
-      setLoading(false);
     };
     load();
   }, [eventId, user, accessCode]);
