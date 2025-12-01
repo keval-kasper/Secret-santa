@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 function Login() {
-  const { login, authError, setAuthError } = useAuth()
+  const { login, loginGoogle, authError, setAuthError } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+
+  const redirectTo = location.state?.from?.pathname || '/dashboard'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -16,8 +19,7 @@ function Login() {
     setAuthError(null)
     try {
       await login({ email, password })
-      const redirect = location.state?.from?.pathname || '/dashboard'
-      navigate(redirect)
+      navigate(redirectTo)
     } catch (err) {
       setAuthError(err.message)
     } finally {
@@ -25,9 +27,28 @@ function Login() {
     }
   }
 
+  const handleGoogle = async () => {
+    setGoogleLoading(true)
+    setAuthError(null)
+    try {
+      await loginGoogle()
+      navigate(redirectTo)
+    } catch (err) {
+      setAuthError(err.message)
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
+
   return (
     <div className="card">
       <h2>Log in</h2>
+      <p className="muted">Participants should use Google sign-in; admin can use email/password.</p>
+      <div className="actions">
+        <button className="btn" onClick={handleGoogle} disabled={googleLoading}>
+          {googleLoading ? 'Signing in...' : 'Sign in with Google'}
+        </button>
+      </div>
       <form className="form" onSubmit={handleSubmit}>
         <label>
           Email
@@ -48,13 +69,10 @@ function Login() {
           />
         </label>
         {authError && <p className="error">{authError}</p>}
-        <button className="btn" type="submit" disabled={loading}>
-          {loading ? 'Signing in...' : 'Log in'}
+        <button className="btn ghost" type="submit" disabled={loading}>
+          {loading ? 'Signing in...' : 'Log in with email (admin)'}
         </button>
       </form>
-      <p>
-        Need an account? <Link to="/signup">Sign up</Link>
-      </p>
     </div>
   )
 }

@@ -26,7 +26,6 @@ function Header() {
         ) : (
           <>
             <Link to="/login">Log in</Link>
-            <Link to="/signup">Sign up</Link>
           </>
         )}
       </nav>

@@ -1,16 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import {
-  addExclusion,
-  addParticipant,
-  collections,
-  db,
-  markEventMatched,
-  setAssignments,
-} from '../firebase'
+import { addExclusion, addParticipant, collections, db, resetAssignments } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { doc, getDoc, getDocs, query, where } from 'firebase/firestore'
-import { generateAssignments } from '../utils/matching'
 
 function ManageEvent() {
   const { eventId } = useParams()
@@ -22,7 +14,6 @@ function ManageEvent() {
   const [exclusionForm, setExclusionForm] = useState({ fromUserId: '', toUserId: '' })
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -91,45 +82,11 @@ function ManageEvent() {
     }
   }
 
-  const handleGenerate = async () => {
-    setGenerating(true)
+  const handleReset = async () => {
     setStatus(null)
-    try {
-      if (participants.length < 2) {
-        setStatus({ type: 'error', message: 'Need at least two participants.' })
-        setGenerating(false)
-        return
-      }
-      const participantIds = participants.map((p) => p.userId || p.email)
-      if (participantIds.some((id) => !id)) {
-        setStatus({
-          type: 'error',
-          message: 'All participants need an email or linked account before matching.',
-        })
-        setGenerating(false)
-        return
-      }
-      const { success, assignments, error } = generateAssignments(participantIds, exclusions)
-      if (!success) {
-        setStatus({ type: 'error', message: error })
-        setGenerating(false)
-        return
-      }
-      await setAssignments(
-        eventId,
-        assignments.map((a) => ({
-          giverUserId: a.giverUserId,
-          receiverUserId: a.receiverUserId,
-        }))
-      )
-      await markEventMatched(eventId)
-      setEvent((prev) => (prev ? { ...prev, isMatchingGenerated: true } : prev))
-      setStatus({ type: 'success', message: 'Matches generated successfully!' })
-    } catch (err) {
-      setStatus({ type: 'error', message: err.message })
-    } finally {
-      setGenerating(false)
-    }
+    await resetAssignments(eventId)
+    setEvent((prev) => (prev ? { ...prev, isMatchingGenerated: false } : prev))
+    setStatus({ type: 'success', message: 'Assignments cleared. Participants can draw again.' })
   }
 
   if (loading) return <div className="card">Loading event...</div>
@@ -145,6 +102,9 @@ function ManageEvent() {
         <p>Exchange date: {event.exchangeDate || 'TBD'}</p>
         <p>Matching generated: {event.isMatchingGenerated ? 'Yes' : 'No'}</p>
         {status && <p className={status.type === 'error' ? 'error' : 'success'}>{status.message}</p>}
+        <p className="muted">
+          Invite link: <code>{`${window.location.origin}/invite/${eventId}`}</code>
+        </p>
       </div>
 
       <div className="card">
@@ -225,13 +185,10 @@ function ManageEvent() {
       </div>
 
       <div className="card">
-        <h3>Generate matches</h3>
-        <p className="muted">
-          Generates assignments respecting exclusions. Matches are stored but never shown in this
-          UI.
-        </p>
-        <button className="btn" onClick={handleGenerate} disabled={generating}>
-          {generating ? 'Generating...' : 'Generate matches'}
+        <h3>Reset matches</h3>
+        <p className="muted">Clears all assignments so everyone can draw again.</p>
+        <button className="btn" onClick={handleReset}>
+          Reset assignments
         </button>
       </div>
     </div>

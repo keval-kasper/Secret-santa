@@ -9,11 +9,8 @@ function Landing() {
         and generate matches that only participants can see for themselves.
       </p>
       <div className="actions">
-        <Link className="btn" to="/signup">
-          Get started
-        </Link>
-        <Link className="btn ghost" to="/login">
-          Log in
+        <Link className="btn" to="/login">
+          Log in with Google
         </Link>
       </div>
     </div>

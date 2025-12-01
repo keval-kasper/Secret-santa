@@ -4,6 +4,7 @@ import {
   auth,
   createUserProfile,
   loginWithEmail,
+  loginWithGoogle,
   logoutUser,
   registerWithEmail,
 } from '../firebase'
@@ -42,6 +43,14 @@ export function AuthProvider({ children }) {
     return cred.user
   }
 
+  const loginGoogle = async () => {
+    setAuthError(null)
+    const cred = await loginWithGoogle()
+    await createUserProfile(cred.user, cred.user.displayName || '')
+    setUser(cred.user)
+    return cred.user
+  }
+
   const logout = async () => {
     setAuthError(null)
     await logoutUser()
@@ -55,6 +64,7 @@ export function AuthProvider({ children }) {
     setAuthError,
     signup,
     login,
+    loginGoogle,
     logout,
   }
 
