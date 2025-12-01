@@ -56,7 +56,8 @@ function EventView() {
               docs: fallbackSnap.docs.filter((d) => {
                 const dataInner = d.data();
                 return (
-                  dataInner.userId === user.uid || dataInner.email === user.email
+                  dataInner.userId === user.uid ||
+                  dataInner.email === user.email
                 );
               }),
             };
@@ -112,6 +113,7 @@ function EventView() {
     setDrawing(true);
     setStatus(null);
     try {
+      console.log("Starting draw process...");
       // If we already have an assignment, just show it.
       if (assignment) {
         setStatus({ type: "success", message: "You already drew a name." });
@@ -119,6 +121,7 @@ function EventView() {
         return;
       }
 
+      console.log("Checking for existing assignments...");
       // If any assignments already exist, do not regenerate to avoid changing others.
       const existingAssignments = await getDocs(
         query(collections.assignments(), where("eventId", "==", eventId))
@@ -127,7 +130,7 @@ function EventView() {
         const mine = existingAssignments.docs
           .map((d) => d.data())
           .find(
-            (a) => a.giverUserId === user.uid || a.giverUserId === user.email
+            (a) => a.giverUserId === user?.uid || a.giverUserId === user?.email || a.giverUserId === participantRecord?.email
           );
         if (mine) {
           setAssignment(mine);
@@ -143,6 +146,7 @@ function EventView() {
         return;
       }
 
+      console.log("Getting participants...");
       const allParticipantsSnap = await getDocs(
         query(collections.participants(), where("eventId", "==", eventId))
       );
@@ -152,6 +156,7 @@ function EventView() {
       }));
       setParticipants(participantList);
 
+      console.log("Getting exclusions...");
       const exclSnap = await getDocs(
         query(collections.exclusions(), where("eventId", "==", eventId))
       );
@@ -167,6 +172,7 @@ function EventView() {
         setDrawing(false);
         return;
       }
+      console.log("Generating assignments for:", ids);
       const { success, assignments, error } = generateAssignments(
         ids,
         exclusions
@@ -176,6 +182,7 @@ function EventView() {
         setDrawing(false);
         return;
       }
+      console.log("Saving assignments...", assignments);
       await setAssignments(
         eventId,
         assignments.map((a) => ({
