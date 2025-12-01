@@ -104,6 +104,18 @@ export async function removeExclusion(id) {
   return deleteDoc(doc(db, "exclusions", id));
 }
 
+export async function removeParticipant(id) {
+  return deleteDoc(doc(db, "eventParticipants", id));
+}
+
+export async function updateParticipantAccessCode(participantId, accessCode) {
+  return setDoc(
+    doc(db, "eventParticipants", participantId),
+    { accessCode },
+    { merge: true }
+  );
+}
+
 export async function setAssignments(eventId, assignments) {
   // Clears previous assignments for an event, then writes the new set.
   const assignmentSnap = await getDocs(
