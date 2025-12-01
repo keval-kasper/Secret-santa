@@ -130,7 +130,10 @@ function EventView() {
         const mine = existingAssignments.docs
           .map((d) => d.data())
           .find(
-            (a) => a.giverUserId === user?.uid || a.giverUserId === user?.email || a.giverUserId === participantRecord?.email
+            (a) =>
+              a.giverUserId === user?.uid ||
+              a.giverUserId === user?.email ||
+              a.giverUserId === participantRecord?.email
           );
         if (mine) {
           setAssignment(mine);
