@@ -1,14 +1,11 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
-import { collections, db, markEventMatched, setAssignments } from "../firebase";
+import { useParams } from "react-router-dom";
+import { collections, db, addAssignment } from "../firebase";
 import { useAuth } from "../context/AuthContext";
-import { doc, getDoc, getDocs, query, where } from "firebase/firestore";
-import { generateAssignments } from "../utils/matching";
+import { doc, getDoc, getDocs, query, where, setDoc } from "firebase/firestore";
 
 function EventView() {
   const { eventId } = useParams();
-  const [searchParams] = useSearchParams();
-  const accessCode = searchParams.get("code");
   const { user } = useAuth();
   const [event, setEvent] = useState(null);
   const [participantRecord, setParticipantRecord] = useState(null);
@@ -17,8 +14,6 @@ function EventView() {
   const [loading, setLoading] = useState(true);
   const [drawing, setDrawing] = useState(false);
   const [status, setStatus] = useState(null);
-  const [codeInput, setCodeInput] = useState("");
-  const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -33,52 +28,6 @@ function EventView() {
         const data = { id: eventDoc.id, ...eventDoc.data() };
         setEvent(data);
 
-        // Check if access code authentication is needed
-        if (!user && !accessCode) {
-          setLoading(false);
-          return;
-        }
-
-        let participantQuery;
-        if (user) {
-          // Traditional user-based auth (for event owners)
-          participantQuery = await getDocs(
-            query(
-              collections.participants(),
-              where("eventId", "==", eventId),
-              where("userId", "in", [user.uid, user.email].filter(Boolean))
-            )
-          ).catch(async () => {
-            const fallbackSnap = await getDocs(
-              query(collections.participants(), where("eventId", "==", eventId))
-            );
-            return {
-              docs: fallbackSnap.docs.filter((d) => {
-                const dataInner = d.data();
-                return (
-                  dataInner.userId === user.uid ||
-                  dataInner.email === user.email
-                );
-              }),
-            };
-          });
-        } else if (accessCode) {
-          // Access code based auth (for participants)
-          participantQuery = await getDocs(
-            query(
-              collections.participants(),
-              where("eventId", "==", eventId),
-              where("accessCode", "==", accessCode)
-            )
-          );
-        }
-
-        const memberRecord = participantQuery?.docs[0]?.data();
-        if (memberRecord) {
-          setParticipantRecord(memberRecord);
-          setAuthenticated(true);
-        }
-
         const allParticipantsSnap = await getDocs(
           query(collections.participants(), where("eventId", "==", eventId))
         );
@@ -88,14 +37,45 @@ function EventView() {
         }));
         setParticipants(participantList);
 
+        const memberRecord = participantList.find((p) => {
+          const email = (p.email || "").toLowerCase();
+          const currentEmail = (user.email || "").toLowerCase();
+          return p.userId === user.uid || (email && email === currentEmail);
+        });
+        setParticipantRecord(memberRecord || null);
+        if (memberRecord && !memberRecord.userId) {
+          await setDoc(
+            doc(db, "eventParticipants", memberRecord.id),
+            { userId: user.uid, status: "joined" },
+            { merge: true }
+          );
+        }
+
         if (memberRecord) {
           const assignmentSnap = await getDocs(
             query(
               collections.assignments(),
               where("eventId", "==", eventId),
-              where("giverId", "==", memberRecord.id || memberRecord.email)
+              where("giverUserId", "in", [
+                user.uid,
+                (user.email || "").toLowerCase(),
+              ])
             )
-          );
+          ).catch(async () => {
+            const allSnap = await getDocs(
+              query(collections.assignments(), where("eventId", "==", eventId))
+            );
+            return {
+              docs: allSnap.docs.filter((d) => {
+                const dataInner = d.data();
+                const giverId = (dataInner.giverUserId || "").toLowerCase();
+                return (
+                  giverId === user.uid ||
+                  giverId === (user.email || "").toLowerCase()
+                );
+              }),
+            };
+          });
           const first = assignmentSnap.docs[0]?.data();
           setAssignment(first || null);
         }
@@ -107,49 +87,40 @@ function EventView() {
       }
     };
     load();
-  }, [eventId, user, accessCode]);
+  }, [eventId, user]);
 
   const handleDraw = async () => {
     setDrawing(true);
     setStatus(null);
     try {
       console.log("Starting draw process...");
-      // If we already have an assignment, just show it.
-      if (assignment) {
+
+      // Check if I already have an assignment
+      const existingAssignments = await getDocs(
+        query(collections.assignments(), where("eventId", "==", eventId))
+      );
+
+      const myGiverId = user?.uid || (user?.email || "").toLowerCase();
+      const myEmail = (user?.email || "").toLowerCase();
+
+      console.log("My giverId:", myGiverId);
+      console.log("My email:", myEmail);
+
+      const mine = existingAssignments.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .find((a) => {
+          const giverId = (a.giverUserId || "").toLowerCase();
+          return giverId === myGiverId || giverId === myEmail;
+        });
+
+      if (mine) {
+        setAssignment(mine);
         setStatus({ type: "success", message: "You already drew a name." });
         setDrawing(false);
         return;
       }
 
-      console.log("Checking for existing assignments...");
-      // If any assignments already exist, do not regenerate to avoid changing others.
-      const existingAssignments = await getDocs(
-        query(collections.assignments(), where("eventId", "==", eventId))
-      );
-      if (!existingAssignments.empty) {
-        const mine = existingAssignments.docs
-          .map((d) => d.data())
-          .find(
-            (a) =>
-              a.giverUserId === user?.uid ||
-              a.giverUserId === user?.email ||
-              a.giverUserId === participantRecord?.email
-          );
-        if (mine) {
-          setAssignment(mine);
-          setStatus({ type: "success", message: "Name drawn!" });
-        } else {
-          setStatus({
-            type: "error",
-            message:
-              "Names already drawn. Ask the admin to reset so you can join.",
-          });
-        }
-        setDrawing(false);
-        return;
-      }
-
-      console.log("Getting participants...");
+      // Get all participants
       const allParticipantsSnap = await getDocs(
         query(collections.participants(), where("eventId", "==", eventId))
       );
@@ -159,49 +130,75 @@ function EventView() {
       }));
       setParticipants(participantList);
 
-      console.log("Getting exclusions...");
+      // Get exclusions
       const exclSnap = await getDocs(
         query(collections.exclusions(), where("eventId", "==", eventId))
       );
       const exclusions = exclSnap.docs.map((d) => d.data());
 
-      const ids = participantList.map((p) => p.userId || p.email);
-      if (ids.some((id) => !id)) {
+      console.log("All exclusions:", exclusions);
+
+      // Get already assigned receivers (people who have been picked)
+      const alreadyAssigned = existingAssignments.docs.map((d) => {
+        const data = d.data();
+        return (data.receiverUserId || "").toLowerCase();
+      });
+
+      // Build list of available receivers (not yet assigned and not myself)
+      const myExclusions = exclusions
+        .filter((e) => {
+          const from = (e.fromUserId || "").toLowerCase();
+          const match = from === myGiverId.toLowerCase() || from === myEmail;
+          console.log(
+            `Exclusion: from=${from}, to=${e.toUserId}, matches me=${match}`
+          );
+          return match;
+        })
+        .map((e) => (e.toUserId || "").toLowerCase());
+
+      console.log("My exclusions:", myExclusions);
+
+      const availableReceivers = participantList
+        .map((p) => p.userId || (p.email || "").toLowerCase())
+        .filter((id) => {
+          const normalizedId = (id || "").toLowerCase();
+          const isMe =
+            normalizedId === myGiverId.toLowerCase() ||
+            normalizedId === myEmail;
+          const isAssigned = alreadyAssigned.includes(normalizedId);
+          const isExcluded = myExclusions.includes(normalizedId);
+
+          console.log(
+            `Checking ${normalizedId}: isMe=${isMe}, isAssigned=${isAssigned}, isExcluded=${isExcluded}`
+          );
+
+          return !isMe && !isAssigned && !isExcluded;
+        });
+
+      console.log("Available receivers:", availableReceivers);
+
+      if (availableReceivers.length === 0) {
         setStatus({
           type: "error",
-          message:
-            "Each participant must have an account/email before drawing.",
+          message: "No available recipients. Ask admin to reset matches.",
         });
         setDrawing(false);
         return;
       }
-      console.log("Generating assignments for:", ids);
-      const { success, assignments, error } = generateAssignments(
-        ids,
-        exclusions
-      );
-      if (!success) {
-        setStatus({ type: "error", message: error });
-        setDrawing(false);
-        return;
-      }
-      console.log("Saving assignments...", assignments);
-      await setAssignments(
-        eventId,
-        assignments.map((a) => ({
-          giverUserId: a.giverUserId,
-          receiverUserId: a.receiverUserId,
-        }))
-      );
-      await markEventMatched(eventId);
-      setEvent((prev) =>
-        prev ? { ...prev, isMatchingGenerated: true } : prev
-      );
 
-      const mine = assignments.find(
-        (a) => a.giverUserId === user.uid || a.giverUserId === user.email
-      );
-      setAssignment(mine || null);
+      // Pick a random receiver
+      const randomIndex = Math.floor(Math.random() * availableReceivers.length);
+      const receiverId = availableReceivers[randomIndex];
+
+      // Save my assignment
+      const newAssignment = {
+        giverUserId: myGiverId,
+        receiverUserId: receiverId,
+      };
+
+      await addAssignment(eventId, newAssignment);
+
+      setAssignment({ eventId, ...newAssignment });
       setStatus({ type: "success", message: "Name drawn! Locked in." });
     } catch (err) {
       setStatus({ type: "error", message: err.message });
@@ -213,50 +210,31 @@ function EventView() {
   if (loading) return <div className="card">Loading event...</div>;
   if (event?.missing) return <div className="card">Event not found.</div>;
 
-  // Show access code input if not authenticated
-  if (!authenticated && !user) {
-    return (
-      <div className="card">
-        <h2>{event?.title || "Secret Santa Event"}</h2>
-        <p>Enter your access code to view your assignment:</p>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            window.location.href = `#/events/${eventId}?code=${codeInput}`;
-            window.location.reload();
-          }}
-        >
-          <label>
-            Access Code
-            <input
-              type="text"
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value)}
-              placeholder="Enter your 6-digit code"
-              required
-            />
-          </label>
-          <button className="btn" type="submit">
-            Access Event
-          </button>
-        </form>
-        <p className="muted">Don't have a code? Ask the event organizer.</p>
-      </div>
-    );
-  }
-
   if (!participantRecord)
     return (
       <div className="card">
-        Invalid access code or you are not a participant in this event.
+        You are not a participant in this event with this email. Ask the admin
+        to invite you.
       </div>
     );
 
-  const receiverName = participants.find(
-    (p) =>
+  console.log("Assignment:", assignment);
+  console.log("Participants:", participants);
+  participants.forEach((p) => {
+    console.log(
+      `Participant: ${p.displayName}, userId: ${p.userId}, email: ${p.email}`
+    );
+  });
+  const receiver = participants.find((p) => {
+    const rid = (assignment?.receiverUserId || "").toLowerCase();
+    return (
       p.userId === assignment?.receiverUserId ||
-      p.email === assignment?.receiverUserId
-  )?.displayName;
+      (p.email || "").toLowerCase() === rid
+    );
+  });
+  console.log("Looking for receiverUserId:", assignment?.receiverUserId);
+  console.log("Receiver found:", receiver);
+  const receiverName = receiver?.displayName || "Unknown";
 
   return (
     <div className="card">
@@ -272,18 +250,18 @@ function EventView() {
       <div className="callout">
         {assignment ? (
           <p>
-            You are buying a gift for:{" "}
-            <strong>{receiverName || assignment.receiverUserId}</strong>
+            You are buying a gift for: <strong>{receiverName}</strong>
           </p>
         ) : (
-          <p className="muted">
-            Click draw to get your recipient. This cannot be changed.
-          </p>
-        )}
-        {!assignment && (
-          <button className="btn" onClick={handleDraw} disabled={drawing}>
-            {drawing ? "Drawing..." : "Draw my name"}
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <p className="muted">
+              Click draw to get your recipient. This cannot be changed unless
+              admin resets.
+            </p>
+            <button className="btn" onClick={handleDraw} disabled={drawing}>
+              {drawing ? "Drawing..." : "Draw my name"}
+            </button>
+          </div>
         )}
       </div>
     </div>

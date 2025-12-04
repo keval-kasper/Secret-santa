@@ -108,31 +108,43 @@ export async function removeParticipant(id) {
   return deleteDoc(doc(db, "eventParticipants", id));
 }
 
-export async function updateParticipantAccessCode(participantId, accessCode) {
-  return setDoc(
-    doc(db, "eventParticipants", participantId),
-    { accessCode },
-    { merge: true }
-  );
-}
-
 export async function setAssignments(eventId, assignments) {
   // Clears previous assignments for an event, then writes the new set.
-  const assignmentSnap = await getDocs(
-    query(collections.assignments(), where("eventId", "==", eventId))
-  );
-  const batchDeletes = assignmentSnap.docs.map((d) =>
-    deleteDoc(doc(db, "assignments", d.id))
-  );
-  await Promise.all(batchDeletes);
+  try {
+    const assignmentSnap = await getDocs(
+      query(collections.assignments(), where("eventId", "==", eventId))
+    );
+    if (!assignmentSnap.empty) {
+      const batchDeletes = assignmentSnap.docs.map((d) =>
+        deleteDoc(doc(db, "assignments", d.id))
+      );
+      await Promise.all(batchDeletes);
+    }
 
-  const writes = assignments.map((assignment) =>
-    addDoc(collections.assignments(), {
+    const writes = assignments.map((assignment) =>
+      addDoc(collections.assignments(), {
+        eventId,
+        ...assignment,
+      })
+    );
+    return Promise.all(writes);
+  } catch (error) {
+    console.error("Error in setAssignments:", error);
+    throw error;
+  }
+}
+
+export async function addAssignment(eventId, assignment) {
+  // Adds a single assignment without deleting existing ones
+  try {
+    return await addDoc(collections.assignments(), {
       eventId,
       ...assignment,
-    })
-  );
-  return Promise.all(writes);
+    });
+  } catch (error) {
+    console.error("Error in addAssignment:", error);
+    throw error;
+  }
 }
 
 export async function markEventMatched(eventId) {

@@ -6,9 +6,9 @@ import CreateEvent from "./pages/CreateEvent";
 import ManageEvent from "./pages/ManageEvent";
 import EventView from "./pages/EventView";
 import InviteJoin from "./pages/InviteJoin";
-import DebugAssignments from "./pages/DebugAssignments";
 import Header from "./components/Header";
 import ProtectedRoute from "./components/ProtectedRoute";
+import OrganizerRoute from "./components/OrganizerRoute";
 import "./App.css";
 
 function App() {
@@ -20,43 +20,42 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route
-            path="/dashboard"
+            path="/organizer/dashboard"
             element={
-              <ProtectedRoute>
+              <OrganizerRoute>
                 <Dashboard />
-              </ProtectedRoute>
+              </OrganizerRoute>
             }
           />
           <Route
-            path="/events/new"
+            path="/organizer/events/new"
             element={
-              <ProtectedRoute>
+              <OrganizerRoute>
                 <CreateEvent />
-              </ProtectedRoute>
+              </OrganizerRoute>
             }
           />
           <Route
-            path="/events/:eventId/manage"
+            path="/organizer/events/:eventId/manage"
+            element={
+              <OrganizerRoute>
+                <ManageEvent />
+              </OrganizerRoute>
+            }
+          />
+          <Route
+            path="/events/:eventId"
             element={
               <ProtectedRoute>
-                <ManageEvent />
+                <EventView />
               </ProtectedRoute>
             }
           />
-          <Route path="/events/:eventId" element={<EventView />} />
           <Route
             path="/invite/:eventId"
             element={
               <ProtectedRoute>
                 <InviteJoin />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/debug/:eventId"
-            element={
-              <ProtectedRoute>
-                <DebugAssignments />
               </ProtectedRoute>
             }
           />

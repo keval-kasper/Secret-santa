@@ -7,7 +7,7 @@ import {
   db,
   resetAssignments,
   removeParticipant,
-  updateParticipantAccessCode,
+  removeExclusion,
 } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import { doc, getDoc, getDocs, query, where } from "firebase/firestore";
@@ -18,6 +18,7 @@ function ManageEvent() {
   const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [exclusions, setExclusions] = useState([]);
+  const [assignments, setAssignmentsList] = useState([]);
   const [participantForm, setParticipantForm] = useState({
     displayName: "",
     email: "",
@@ -50,6 +51,15 @@ function ManageEvent() {
         query(collections.exclusions(), where("eventId", "==", eventId))
       );
       setExclusions(exclSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+      // Always load assignments to show what has been drawn
+      const assignSnap = await getDocs(
+        query(collections.assignments(), where("eventId", "==", eventId))
+      );
+      setAssignmentsList(
+        assignSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      );
+
       setLoading(false);
     };
     load();
@@ -64,15 +74,10 @@ function ManageEvent() {
     e.preventDefault();
     setStatus(null);
     try {
-      // Generate a unique 6-digit access code
-      const accessCode = Math.random()
-        .toString(36)
-        .substring(2, 8)
-        .toUpperCase();
-
+      const normalizedEmail = participantForm.email.trim().toLowerCase();
       // Try to match email to an existing user to capture userId for assignments.
       const existingUserSnap = await getDocs(
-        query(collections.users(), where("email", "==", participantForm.email))
+        query(collections.users(), where("email", "==", normalizedEmail))
       );
       const linkedUserId = existingUserSnap.empty
         ? null
@@ -80,10 +85,9 @@ function ManageEvent() {
       await addParticipant({
         eventId,
         displayName: participantForm.displayName,
-        email: participantForm.email,
+        email: normalizedEmail,
         userId: linkedUserId,
         status: linkedUserId ? "joined" : "invited",
-        accessCode,
       });
       setParticipantForm({ displayName: "", email: "" });
       const refreshed = await getDocs(
@@ -92,7 +96,7 @@ function ManageEvent() {
       setParticipants(refreshed.docs.map((d) => ({ id: d.id, ...d.data() })));
       setStatus({
         type: "success",
-        message: `Participant added. Access code: ${accessCode}`,
+        message: "Participant invited by email.",
       });
     } catch (err) {
       setStatus({ type: "error", message: err.message });
@@ -118,6 +122,7 @@ function ManageEvent() {
   const handleReset = async () => {
     setStatus(null);
     await resetAssignments(eventId);
+    setAssignmentsList([]);
     setEvent((prev) => (prev ? { ...prev, isMatchingGenerated: false } : prev));
     setStatus({
       type: "success",
@@ -140,29 +145,16 @@ function ManageEvent() {
     }
   };
 
-  const handleRegenerateAllCodes = async () => {
-    if (
-      !confirm(
-        "Regenerate access codes for all participants? Old codes will stop working."
-      )
-    )
-      return;
+  const handleDeleteExclusion = async (exclusionId) => {
+    if (!confirm("Are you sure you want to delete this exclusion?")) return;
     setStatus(null);
     try {
-      const updates = participants.map(async (p) => {
-        const newCode = Math.random()
-          .toString(36)
-          .substring(2, 8)
-          .toUpperCase();
-        await updateParticipantAccessCode(p.id, newCode);
-        return { ...p, accessCode: newCode };
-      });
-      await Promise.all(updates);
+      await removeExclusion(exclusionId);
       const refreshed = await getDocs(
-        query(collections.participants(), where("eventId", "==", eventId))
+        query(collections.exclusions(), where("eventId", "==", eventId))
       );
-      setParticipants(refreshed.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setStatus({ type: "success", message: "All access codes regenerated!" });
+      setExclusions(refreshed.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setStatus({ type: "success", message: "Exclusion deleted." });
     } catch (err) {
       setStatus({ type: "error", message: err.message });
     }
@@ -194,27 +186,15 @@ function ManageEvent() {
           <p>
             <strong>Share this link with participants:</strong>
           </p>
-          <code>{`${window.location.origin}${window.location.pathname}#/events/${eventId}`}</code>
+          <code>{`${window.location.origin}/events/${eventId}`}</code>
           <p className="muted" style={{ marginTop: "0.5rem" }}>
-            Each participant will need their unique access code (shown below)
+            Participants must log in with the invited email via Google.
           </p>
         </div>
       </div>
 
       <div className="card">
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "1rem",
-          }}
-        >
-          <h3 style={{ margin: 0 }}>Participants</h3>
-          <button className="btn small" onClick={handleRegenerateAllCodes}>
-            Regenerate All Codes
-          </button>
-        </div>
+        <h3 style={{ margin: 0 }}>Participants</h3>
         <form className="form inline" onSubmit={handleAddParticipant}>
           <input
             placeholder="Name"
@@ -244,15 +224,26 @@ function ManageEvent() {
                 <p className="list-title">{p.displayName}</p>
                 <p className="muted">{p.email}</p>
                 {p.accessCode && (
-                  <p style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>
-                    Access code: <strong>{p.accessCode}</strong>
+                  <p
+                    className="muted"
+                    style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}
+                  >
+                    Access Code: <strong>{p.accessCode}</strong>
                   </p>
                 )}
               </div>
               <div
                 style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
               >
-                <span className="pill">{p.status || "invited"}</span>
+                <span
+                  className="pill"
+                  style={{
+                    backgroundColor: p.hasJoined ? "#4caf50" : "#ff9800",
+                    color: "white",
+                  }}
+                >
+                  {p.hasJoined ? "✓ Joined" : "Invited"}
+                </span>
                 <button
                   className="btn small"
                   onClick={() => handleDeleteParticipant(p.id)}
@@ -310,6 +301,13 @@ function ManageEvent() {
                   {displayFor(excl.toUserId, participants)}
                 </p>
               </div>
+              <button
+                className="btn small"
+                onClick={() => handleDeleteExclusion(excl.id)}
+                style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+              >
+                Delete
+              </button>
             </li>
           ))}
         </ul>
@@ -324,12 +322,35 @@ function ManageEvent() {
           Reset assignments
         </button>
       </div>
+
+      {assignments.length > 0 && (
+        <div className="card">
+          <h3>Assignments (visible to admin only)</h3>
+          <ul className="list">
+            {assignments.map((a) => (
+              <li key={a.id} className="list-item">
+                <div>
+                  <p className="list-title">
+                    {displayFor(a.giverUserId, participants)} →{" "}
+                    {displayFor(a.receiverUserId, participants)}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
 
 function displayFor(id, participants) {
-  const found = participants.find((p) => (p.userId || p.email) === id);
+  const normalizedId = (id || "").toLowerCase();
+  const found = participants.find((p) => {
+    const userId = (p.userId || "").toLowerCase();
+    const email = (p.email || "").toLowerCase();
+    return userId === normalizedId || email === normalizedId;
+  });
   return found ? found.displayName : id;
 }
 

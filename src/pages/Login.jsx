@@ -1,80 +1,66 @@
-import { useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { collections } from "../firebase";
+import { getDocs, query, where } from "firebase/firestore";
 
 function Login() {
-  const { login, loginGoogle, authError, setAuthError } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
-  const navigate = useNavigate()
-  const location = useLocation()
+  const {
+    loginGoogle,
+    authError,
+    setAuthError,
+    logout,
+  } = useAuth();
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const redirectTo = location.state?.from?.pathname || '/dashboard'
+  const redirectTo = location.state?.from?.pathname || "/dashboard";
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setAuthError(null)
-    try {
-      await login({ email, password })
-      navigate(redirectTo)
-    } catch (err) {
-      setAuthError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const adminEmails = (import.meta.env.VITE_ADMIN_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  const userAllowed = async (emailToCheck) => {
+    if (adminEmails.includes(emailToCheck.toLowerCase())) return true;
+    const invited = await getDocs(
+      query(collections.participants(), where("email", "==", emailToCheck))
+    );
+    return !invited.empty;
+  };
 
   const handleGoogle = async () => {
-    setGoogleLoading(true)
-    setAuthError(null)
+    setGoogleLoading(true);
+    setAuthError(null);
     try {
-      await loginGoogle()
-      navigate(redirectTo)
+      const u = await loginGoogle();
+      const allowed = await userAllowed(u.email || "");
+      if (!allowed) {
+        setAuthError("You are not invited to any event. Ask the admin to add your email.");
+        await logout();
+        return;
+      }
+      navigate(redirectTo);
     } catch (err) {
-      setAuthError(err.message)
+      setAuthError(err.message);
     } finally {
-      setGoogleLoading(false)
+      setGoogleLoading(false);
     }
-  }
+  };
 
   return (
     <div className="card">
       <h2>Log in</h2>
-      <p className="muted">Participants should use Google sign-in; admin can use email/password.</p>
+      <p className="muted">Sign in with Google using the email the admin invited.</p>
       <div className="actions">
         <button className="btn" onClick={handleGoogle} disabled={googleLoading}>
-          {googleLoading ? 'Signing in...' : 'Sign in with Google'}
+          {googleLoading ? "Signing in..." : "Sign in with Google"}
         </button>
       </div>
-      <form className="form" onSubmit={handleSubmit}>
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
-        {authError && <p className="error">{authError}</p>}
-        <button className="btn ghost" type="submit" disabled={loading}>
-          {loading ? 'Signing in...' : 'Log in with email (admin)'}
-        </button>
-      </form>
+      {authError && <p className="error">{authError}</p>}
     </div>
-  )
+  );
 }
 
-export default Login
+export default Login;

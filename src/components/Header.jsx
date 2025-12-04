@@ -1,24 +1,34 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
 function Header() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = async () => {
-    await logout()
-    navigate('/login')
-  }
+    await logout();
+    navigate("/login");
+  };
+
+  // Hide organizer link on participant event view pages
+  const isParticipantPage = location.pathname.startsWith("/events/");
 
   return (
     <header className="app-header">
-      <Link to="/" className="brand">
-        Secret Santa
-      </Link>
+      {isParticipantPage ? (
+        <div className="brand">Secret Santa</div>
+      ) : (
+        <Link to="/" className="brand">
+          Secret Santa
+        </Link>
+      )}
       <nav className="nav-links">
         {user ? (
           <>
-            <Link to="/dashboard">Dashboard</Link>
+            {!isParticipantPage && (
+              <Link to="/organizer/dashboard">Organizer</Link>
+            )}
             <button className="link-button" onClick={handleLogout}>
               Logout
             </button>
@@ -30,7 +40,7 @@ function Header() {
         )}
       </nav>
     </header>
-  )
+  );
 }
 
-export default Header
+export default Header;
