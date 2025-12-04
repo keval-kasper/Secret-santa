@@ -27,7 +27,7 @@ function Header() {
         {user ? (
           <>
             {!isParticipantPage && (
-              <Link to="/organizer/dashboard">Organizer</Link>
+              <Link to="/organizer/dashboard">Organizers</Link>
             )}
             <button className="link-button" onClick={handleLogout}>
               Logout
