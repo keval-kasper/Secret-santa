@@ -29,6 +29,8 @@ function ManageEvent() {
   });
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showExclusions, setShowExclusions] = useState(false);
+  const [showAssignments, setShowAssignments] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -311,101 +313,143 @@ function ManageEvent() {
       </div>
 
       <div className="card">
-        <h3 style={{ marginBottom: "1rem" }}>
-          Exclusions ({exclusions.length})
-        </h3>
-        <p
-          className="muted"
-          style={{ marginBottom: "1rem", fontSize: "0.9rem" }}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "1rem",
+          }}
         >
-          Prevent specific people from being matched together.
-        </p>
-        <form className="form inline" onSubmit={handleAddExclusion}>
-          <select
-            value={exclusionForm.fromUserId}
-            onChange={(e) =>
-              setExclusionForm((f) => ({ ...f, fromUserId: e.target.value }))
-            }
-            required
+          <h3 style={{ margin: 0 }}>Exclusions ({exclusions.length})</h3>
+          <button
+            className="btn small"
+            onClick={() => setShowExclusions(!showExclusions)}
+            style={{ padding: "0.25rem 0.75rem" }}
           >
-            <option value="">From (giver)</option>
-            {participants.map((p) => (
-              <option key={p.id} value={p.userId || p.email}>
-                {p.displayName}
-              </option>
-            ))}
-          </select>
-          <select
-            value={exclusionForm.toUserId}
-            onChange={(e) =>
-              setExclusionForm((f) => ({ ...f, toUserId: e.target.value }))
-            }
-            required
-          >
-            <option value="">To (receiver)</option>
-            {participants.map((p) => (
-              <option key={p.id} value={p.userId || p.email}>
-                {p.displayName}
-              </option>
-            ))}
-          </select>
-          <button className="btn small" type="submit">
-            Add
+            {showExclusions ? "Hide" : "Show"}
           </button>
-        </form>
-        {exclusions.length > 0 ? (
-          <ul className="list">
-            {exclusions.map((excl) => (
-              <li key={excl.id} className="list-item">
-                <div>
-                  <p className="list-title">
-                    {displayFor(excl.fromUserId, participants)} →{" "}
-                    {displayFor(excl.toUserId, participants)}
-                  </p>
-                </div>
-                <button
-                  className="btn small"
-                  onClick={() => handleDeleteExclusion(excl.id)}
-                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted" style={{ textAlign: "center", padding: "2rem" }}>
-            No exclusions set.
-          </p>
+        </div>
+        {showExclusions && (
+          <>
+            <p
+              className="muted"
+              style={{ marginBottom: "1rem", fontSize: "0.9rem" }}
+            >
+              Prevent specific people from being matched together.
+            </p>
+            <form className="form inline" onSubmit={handleAddExclusion}>
+              <select
+                value={exclusionForm.fromUserId}
+                onChange={(e) =>
+                  setExclusionForm((f) => ({
+                    ...f,
+                    fromUserId: e.target.value,
+                  }))
+                }
+                required
+              >
+                <option value="">From (giver)</option>
+                {participants.map((p) => (
+                  <option key={p.id} value={p.userId || p.email}>
+                    {p.displayName}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={exclusionForm.toUserId}
+                onChange={(e) =>
+                  setExclusionForm((f) => ({ ...f, toUserId: e.target.value }))
+                }
+                required
+              >
+                <option value="">To (receiver)</option>
+                {participants.map((p) => (
+                  <option key={p.id} value={p.userId || p.email}>
+                    {p.displayName}
+                  </option>
+                ))}
+              </select>
+              <button className="btn small" type="submit">
+                Add
+              </button>
+            </form>
+            {exclusions.length > 0 ? (
+              <ul className="list">
+                {exclusions.map((excl) => (
+                  <li key={excl.id} className="list-item">
+                    <div>
+                      <p className="list-title">
+                        {displayFor(excl.fromUserId, participants)} →{" "}
+                        {displayFor(excl.toUserId, participants)}
+                      </p>
+                    </div>
+                    <button
+                      className="btn small"
+                      onClick={() => handleDeleteExclusion(excl.id)}
+                      style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                    >
+                      Delete
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p
+                className="muted"
+                style={{ textAlign: "center", padding: "2rem" }}
+              >
+                No exclusions set.
+              </p>
+            )}
+          </>
         )}
       </div>
 
       {assignments.length > 0 && (
         <div className="card">
-          <h3 style={{ marginBottom: "1rem" }}>
-            Assignments ({assignments.length})
-            <span
-              style={{
-                fontSize: "0.9rem",
-                fontWeight: "normal",
-                marginLeft: "0.5rem",
-              }}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "1rem",
+            }}
+          >
+            <h3 style={{ margin: 0 }}>
+              Assignments ({assignments.length})
+              <span
+                style={{
+                  fontSize: "0.9rem",
+                  fontWeight: "normal",
+                  marginLeft: "0.5rem",
+                }}
+              >
+                - Admin only
+              </span>
+            </h3>
+            <button
+              className="btn small"
+              onClick={() => setShowAssignments(!showAssignments)}
+              style={{ padding: "0.25rem 0.75rem" }}
             >
-              - Admin only
-            </span>
-          </h3>
-          <ul className="list">
-            {assignments.map((a) => (
-              <li key={a.id} className="list-item">
-                <div>
-                  <p className="list-title">
-                    {displayFor(a.giverUserId, participants)} →{" "}
-                    {displayFor(a.receiverUserId, participants)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
+              {showAssignments ? "Hide" : "Show"}
+            </button>
+          </div>
+          {showAssignments && (
+            <ul className="list">
+              {assignments.map((a) => (
+                <li key={a.id} className="list-item">
+                  <div>
+                    <p className="list-title">
+                      {displayFor(a.giverUserId, participants)} →{" "}
+                      {displayFor(a.receiverUserId, participants)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>
