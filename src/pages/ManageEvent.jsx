@@ -211,7 +211,7 @@ function ManageEvent() {
               wordBreak: "break-all",
             }}
           >
-            {`${window.location.origin}/events/${eventId}`}
+            {`${window.location.origin}/Secret-santa/#/events/${eventId}`}
           </code>
           <p
             className="muted"
