@@ -170,31 +170,60 @@ function ManageEvent() {
     );
 
   return (
-    <div className="grid">
+    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "1rem" }}>
       <div className="card">
-        <h2>{event.title}</h2>
-        <p className="muted">{event.description}</p>
-        <p>Budget: {event.budget || "TBD"}</p>
-        <p>Exchange date: {event.exchangeDate || "TBD"}</p>
-        <p>Matching generated: {event.isMatchingGenerated ? "Yes" : "No"}</p>
+        <h2 style={{ marginBottom: "0.5rem" }}>{event.title}</h2>
+        <p className="muted" style={{ marginBottom: "1rem" }}>
+          {event.description}
+        </p>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "1rem",
+            marginBottom: "1rem",
+          }}
+        >
+          <div>
+            <strong>Budget:</strong> {event.budget || "Not set"}
+          </div>
+          <div>
+            <strong>Exchange Date:</strong> {event.exchangeDate || "Not set"}
+          </div>
+        </div>
         {status && (
           <p className={status.type === "error" ? "error" : "success"}>
             {status.message}
           </p>
         )}
         <div className="callout">
-          <p>
+          <p style={{ marginBottom: "0.5rem" }}>
             <strong>Share this link with participants:</strong>
           </p>
-          <code>{`${window.location.origin}/events/${eventId}`}</code>
-          <p className="muted" style={{ marginTop: "0.5rem" }}>
+          <code
+            style={{
+              display: "block",
+              padding: "0.75rem",
+              background: "#f5f5f5",
+              borderRadius: "4px",
+              wordBreak: "break-all",
+            }}
+          >
+            {`${window.location.origin}/events/${eventId}`}
+          </code>
+          <p
+            className="muted"
+            style={{ marginTop: "0.5rem", fontSize: "0.9rem" }}
+          >
             Participants must log in with the invited email via Google.
           </p>
         </div>
       </div>
 
       <div className="card">
-        <h3 style={{ margin: 0 }}>Participants</h3>
+        <h3 style={{ marginBottom: "1rem" }}>
+          Participants ({participants.length})
+        </h3>
         <form className="form inline" onSubmit={handleAddParticipant}>
           <input
             placeholder="Name"
@@ -217,48 +246,80 @@ function ManageEvent() {
             Add
           </button>
         </form>
-        <ul className="list">
-          {participants.map((p) => (
-            <li key={p.id} className="list-item">
-              <div>
-                <p className="list-title">{p.displayName}</p>
-                <p className="muted">{p.email}</p>
-                {p.accessCode && (
-                  <p
-                    className="muted"
-                    style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}
-                  >
-                    Access Code: <strong>{p.accessCode}</strong>
-                  </p>
-                )}
-              </div>
-              <div
-                style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
-              >
-                <span
-                  className="pill"
+        {participants.length > 0 ? (
+          <ul className="list">
+            {participants.map((p) => (
+              <li key={p.id} className="list-item">
+                <div>
+                  <p className="list-title">{p.displayName}</p>
+                  <p className="muted">{p.email}</p>
+                  {p.accessCode && (
+                    <p
+                      className="muted"
+                      style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}
+                    >
+                      Access Code: <strong>{p.accessCode}</strong>
+                    </p>
+                  )}
+                </div>
+                <div
                   style={{
-                    backgroundColor: p.hasJoined ? "#4caf50" : "#ff9800",
-                    color: "white",
+                    display: "flex",
+                    gap: "0.5rem",
+                    alignItems: "center",
                   }}
                 >
-                  {p.hasJoined ? "✓ Joined" : "Invited"}
-                </span>
-                <button
-                  className="btn small"
-                  onClick={() => handleDeleteParticipant(p.id)}
-                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-                >
-                  Delete
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+                  <span
+                    className="pill"
+                    style={{
+                      backgroundColor: p.hasJoined ? "#4caf50" : "#ff9800",
+                      color: "white",
+                    }}
+                  >
+                    {p.hasJoined ? "✓ Joined" : "Invited"}
+                  </span>
+                  <button
+                    className="btn small"
+                    onClick={() => handleDeleteParticipant(p.id)}
+                    style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted" style={{ textAlign: "center", padding: "2rem" }}>
+            No participants yet. Add some above.
+          </p>
+        )}
       </div>
 
       <div className="card">
-        <h3>Exclusions</h3>
+        <h3 style={{ marginBottom: "0.5rem" }}>Reset Matches</h3>
+        <p className="muted" style={{ marginBottom: "1rem" }}>
+          Clears all assignments so everyone can draw again.
+        </p>
+        <button
+          className="btn"
+          onClick={handleReset}
+          style={{ backgroundColor: "#f44336" }}
+        >
+          Reset All Assignments
+        </button>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginBottom: "1rem" }}>
+          Exclusions ({exclusions.length})
+        </h3>
+        <p
+          className="muted"
+          style={{ marginBottom: "1rem", fontSize: "0.9rem" }}
+        >
+          Prevent specific people from being matched together.
+        </p>
         <form className="form inline" onSubmit={handleAddExclusion}>
           <select
             value={exclusionForm.fromUserId}
@@ -289,43 +350,50 @@ function ManageEvent() {
             ))}
           </select>
           <button className="btn small" type="submit">
-            Add exclusion
+            Add
           </button>
         </form>
-        <ul className="list">
-          {exclusions.map((excl) => (
-            <li key={excl.id} className="list-item">
-              <div>
-                <p className="list-title">
-                  {displayFor(excl.fromUserId, participants)} →{" "}
-                  {displayFor(excl.toUserId, participants)}
-                </p>
-              </div>
-              <button
-                className="btn small"
-                onClick={() => handleDeleteExclusion(excl.id)}
-                style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="card">
-        <h3>Reset matches</h3>
-        <p className="muted">
-          Clears all assignments so everyone can draw again.
-        </p>
-        <button className="btn" onClick={handleReset}>
-          Reset assignments
-        </button>
+        {exclusions.length > 0 ? (
+          <ul className="list">
+            {exclusions.map((excl) => (
+              <li key={excl.id} className="list-item">
+                <div>
+                  <p className="list-title">
+                    {displayFor(excl.fromUserId, participants)} →{" "}
+                    {displayFor(excl.toUserId, participants)}
+                  </p>
+                </div>
+                <button
+                  className="btn small"
+                  onClick={() => handleDeleteExclusion(excl.id)}
+                  style={{ padding: "0.25rem 0.5rem", fontSize: "0.85rem" }}
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted" style={{ textAlign: "center", padding: "2rem" }}>
+            No exclusions set.
+          </p>
+        )}
       </div>
 
       {assignments.length > 0 && (
         <div className="card">
-          <h3>Assignments (visible to admin only)</h3>
+          <h3 style={{ marginBottom: "1rem" }}>
+            Assignments ({assignments.length})
+            <span
+              style={{
+                fontSize: "0.9rem",
+                fontWeight: "normal",
+                marginLeft: "0.5rem",
+              }}
+            >
+              - Admin only
+            </span>
+          </h3>
           <ul className="list">
             {assignments.map((a) => (
               <li key={a.id} className="list-item">
