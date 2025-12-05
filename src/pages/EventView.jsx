@@ -109,8 +109,14 @@ function EventView() {
       const mine = existingAssignments.docs
         .map((d) => ({ id: d.id, ...d.data() }))
         .find((a) => {
-          const giverId = (a.giverUserId || "").toLowerCase();
-          return giverId === myGiverId || giverId === myEmail;
+          const giverId = a.giverUserId || "";
+          const giverIdLower = giverId.toLowerCase();
+          // Match by uid (exact) or email (lowercase)
+          return (
+            giverId === myGiverId ||
+            giverIdLower === myGiverId.toLowerCase() ||
+            giverIdLower === myEmail
+          );
         });
 
       if (mine) {
@@ -143,6 +149,36 @@ function EventView() {
         const data = d.data();
         return (data.receiverUserId || "").toLowerCase();
       });
+
+      // Get people who have already drawn (to prevent multiple draws)
+      const alreadyGivers = existingAssignments.docs.map((d) => {
+        const data = d.data();
+        const giverId = data.giverUserId || "";
+        return giverId.toLowerCase();
+      });
+
+      console.log("Already assigned receivers:", alreadyAssigned);
+      console.log("Already drawn givers:", alreadyGivers);
+
+      // Double-check I haven't already drawn
+      const myIdNormalized = myGiverId.toLowerCase();
+      if (
+        alreadyGivers.includes(myIdNormalized) ||
+        alreadyGivers.includes(myEmail)
+      ) {
+        const existingAssignment = existingAssignments.docs
+          .map((d) => d.data())
+          .find((a) => {
+            const gId = (a.giverUserId || "").toLowerCase();
+            return gId === myIdNormalized || gId === myEmail;
+          });
+        if (existingAssignment) {
+          setAssignment(existingAssignment);
+          setStatus({ type: "success", message: "You already drew a name." });
+          setDrawing(false);
+          return;
+        }
+      }
 
       // Build list of available receivers (not yet assigned and not myself)
       const myExclusions = exclusions
