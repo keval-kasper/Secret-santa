@@ -2,6 +2,8 @@
   max-width: 1100px;
   margin: 0 auto;
   padding: 32px 24px 64px;
+  position: relative;
+  z-index: 1;
 }
 
 .app-main {
@@ -13,15 +15,38 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  border: 2px solid #fbbf24;
   border-radius: 14px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.2);
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Christmas garland on header */
+.app-header::before {
+  content: "🎄✨🎅✨🎁✨⭐✨🎄";
+  position: absolute;
+  top: -5px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  opacity: 0.3;
+  letter-spacing: 20px;
+  pointer-events: none;
 }
 
 .brand {
   font-weight: 700;
   letter-spacing: -0.5px;
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.brand::before {
+  content: "🎅 ";
 }
 
 .nav-links {
@@ -30,12 +55,36 @@
   align-items: center;
 }
 
+.nav-links a {
+  color: #fff;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 150ms ease;
+}
+
+.nav-links a:hover {
+  background: rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
 .link-button {
   border: none;
-  background: none;
+  background: rgba(255, 255, 255, 0.1);
   font: inherit;
   cursor: pointer;
-  padding: 6px 10px;
+  padding: 6px 12px;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 150ms ease;
+}
+
+.link-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .btn {
@@ -45,22 +94,26 @@
   gap: 6px;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid #0f172a;
-  background: #0f172a;
+  border: 2px solid #166534;
+  background: linear-gradient(135deg, #166534 0%, #14532d 100%);
   color: #fff;
   cursor: pointer;
   font-weight: 600;
-  transition: transform 150ms ease, box-shadow 150ms ease;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+  box-shadow: 0 4px 12px rgba(22, 101, 52, 0.3);
 }
 
 .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(22, 101, 52, 0.4);
 }
 
 .btn.ghost {
   background: #fff;
-  color: #0f172a;
+  color: #166534;
+  border-color: #166534;
 }
 
 .btn.small {
@@ -77,9 +130,38 @@
 .card {
   background: #fff;
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
+  border: 2px solid #fbbf24;
   padding: 18px 18px 20px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 30px rgba(220, 38, 38, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(135deg, #dc2626, #fbbf24, #166534);
+  border-radius: 14px;
+  z-index: -1;
+  opacity: 0.3;
+}
+
+/* Christmas lights decoration on cards */
+.card::after {
+  content: "🔴🟡🟢🔴🟡🟢🔴🟡🟢";
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.6rem;
+  opacity: 0.4;
+  letter-spacing: 8px;
+  pointer-events: none;
 }
 
 .card-header {
@@ -167,20 +249,42 @@ textarea {
 }
 
 .error {
-  color: #b91c1c;
+  color: #991b1b;
   font-weight: 600;
+  background: #fee2e2;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 4px solid #dc2626;
+}
+
+.error::before {
+  content: "⚠️ ";
 }
 
 .success {
-  color: #047857;
+  color: #166534;
   font-weight: 600;
+  background: #dcfce7;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 4px solid #166534;
+}
+
+.success::before {
+  content: "✨ ";
 }
 
 .callout {
   margin-top: 12px;
   padding: 12px;
   border-radius: 10px;
-  background: #eef2ff;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #fbbf24;
+}
+
+.callout::before {
+  content: "🎁 ";
+  font-size: 1.2rem;
 }
 
 @media (max-width: 640px) {
